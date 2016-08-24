@@ -87,7 +87,7 @@ func connectHello(url url.URL, header http.Header) *websocket.Conn {
 	})
 	return c
 }
-
+//
 func main() {
 	log.Println("hello bsc-client")
 	flag.Parse()
