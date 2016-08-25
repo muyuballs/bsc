@@ -136,7 +136,6 @@ func welcomeHandler(w http.ResponseWriter, r *http.Request) {
 	if bsct, ok := BSCTs[target]; ok {
 		c, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusForbidden)
 			bsct.Error()
 			log.Println("upgrade:", err)
 			return
@@ -179,7 +178,6 @@ func helloHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusForbidden)
 		log.Println("upgrade:", err)
 		return
 	}
@@ -249,8 +247,8 @@ func main() {
 		return
 	}
 	go handCLMSG()
-	http.HandleFunc("/hello", helloHandler)
-	http.HandleFunc("/welcome", welcomeHandler)
+	http.HandleFunc("/hello/ws", helloHandler)
+	http.HandleFunc("/welcome/ws", welcomeHandler)
 	http.HandleFunc("/", bscHandler)
 	http.ListenAndServe(*addr, nil)
 }

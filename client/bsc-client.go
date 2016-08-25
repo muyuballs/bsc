@@ -20,7 +20,7 @@ var retryCount = flag.Int("retry", 10, "connect server retry count")
 
 func handWelcome(welcome string) {
 	defer log.Println("copy done.")
-	u := url.URL{Scheme: "ws", Host: *serverAddr, Path: "/welcome"}
+	u := url.URL{Scheme: "ws", Host: *serverAddr, Path: "/welcome/ws"}
 	log.Printf("connecting to %s", u.String())
 	header := make(http.Header)
 	header.Set("welcome", welcome)
@@ -87,6 +87,7 @@ func connectHello(url url.URL, header http.Header) *websocket.Conn {
 	})
 	return c
 }
+
 //
 func main() {
 	log.Println("hello bsc-client")
@@ -103,7 +104,7 @@ func main() {
 		flag.PrintDefaults()
 		return
 	}
-	u := url.URL{Scheme: "ws", Host: *serverAddr, Path: "/hello"}
+	u := url.URL{Scheme: "ws", Host: *serverAddr, Path: "/hello/ws"}
 	header := make(http.Header)
 	header.Set("hello", *domain)
 	if *rhost != "" {
