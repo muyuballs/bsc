@@ -15,70 +15,32 @@ import (
 
 const DC_MAX_REF = 10
 
-type DataChannel struct {
-	Tag    byte
-	Rhost  string
-	Writer bsc.ChunckWriter
-	Reader io.Reader
-	ref    int
+type DomainChannel struct {
+	ref     int
+	Rhost   string
+	Writer  bsc.ChunckWriter
+	Reader  io.Reader
+	CWriter map[byte]io.Writer
 }
 
-func (dc *DataChannel) Start(reader bsc.ChunckReader) {
+func (dc *DomainChannel) Start(reader bsc.ChunckReader) {
 
 }
 
-func (dc *DataChannel) Copy() *DataChannel {
+func (dc *DomainChannel) NewDataChannel() *DataChannel {
 	if dc.ref >= DC_MAX_REF {
 		return nil
 	}
-	return dc
-}
-
-func (dc *DataChannel) Close() {
-
-}
-
-func (dc *DataChannel) Transfer(w http.ResponseWriter, r *http.Request) {
-	defer log.Println("transfer done")
-	defer dc.Close()
-	go func() {
-		dc.Writer.Write([]byte(fmt.Sprintf("%s %s %s\r\n", r.Method, r.RequestURI, r.Proto)))
-		if dc.Rhost != "" {
-			log.Println("rewrite host", r.Host, "-->", dc.Rhost)
-			dc.Writer.Write([]byte(fmt.Sprintf("Host: %s\r\n", dc.Rhost)))
-		} else {
-			dc.Writer.Write([]byte(fmt.Sprintf("Host: %s\r\n", r.Host)))
-		}
-		r.Header.WriteSubset(dc.Writer, map[string]bool{"Host": true})
-		dc.Writer.Write([]byte("\r\n"))
-		_, err := io.Copy(dc.Writer, r.Body)
-		if err != nil {
-			log.Println("copy request body", err)
-			return
-		}
-		dc.Writer.Write([]byte("\r\n"))
-		log.Println("request body copy done")
-	}()
-	log.Println("start copy response")
-	reader := bufio.NewReader(dc.Reader)
-	resp, err := http.ReadResponse(reader, r)
-	if err != nil {
-		log.Println("read response", err)
-		return
+	dc.ref++
+	r, w := io.Pipe()
+	channel := &DataChannel{
+		Tag:    byte(dc.ref),
+		Rhost:  dc.Rhost,
+		Writer: dc.Writer,
+		Reader: r,
 	}
-	log.Println("read response done")
-	defer func() {
-		if resp.Body != nil {
-			resp.Body.Close()
-		}
-	}()
-	for k, v := range resp.Header {
-		w.Header()[k] = v
-	}
-	w.WriteHeader(resp.StatusCode)
-	if resp.Body != nil {
-		io.CopyBuffer(w, resp.Body, make([]byte, 8*1024))
-	}
+	dc.CWriter[channel.Tag] = w
+	return channel
 }
 
 func CreateDataChannel(conn *websocket.Conn) (dc *DataChannel, err error) {
@@ -104,9 +66,14 @@ func CreateDataChannel(conn *websocket.Conn) (dc *DataChannel, err error) {
 	if err != nil {
 		return
 	}
+	r, w := io.Pipe()
 	dc = &DataChannel{
-		Writer: bsc.ChunckWriter{Writer: bw},
+		Writer:  bsc.ChunckWriter{Writer: bw},
+		Reader:  r,
+		Tag:     1,
+		CWriter: make(map[byte]io.Writer),
 	}
+	dc.CWriter[dc.Tag] = w
 	go dc.Start(bsc.ChunckReader{Reader: br})
 	return
 }
@@ -120,7 +87,7 @@ type CtrlMsg struct {
 const WelComeTimeOut = 15 * time.Second
 
 type ChannelManager struct {
-	dataChannel map[string][]*DataChannel
+	dataChannel map[string][]*DomainChannel
 	clients     map[string]*Client
 	clmsgChan   chan CtrlMsg
 	welChan     map[string]chan *websocket.Conn
@@ -128,7 +95,7 @@ type ChannelManager struct {
 
 func NewChannelManager() *ChannelManager {
 	return &ChannelManager{
-		dataChannel: make(map[string][]*DataChannel),
+		dataChannel: make(map[string][]*DomainChannel),
 		clients:     make(map[string]*Client),
 		clmsgChan:   make(chan CtrlMsg, 10),
 		welChan:     make(map[string]chan *websocket.Conn)}
@@ -185,7 +152,7 @@ func (cm *ChannelManager) OpenChannel(domain string) (dc *DataChannel, err error
 
 func (cm *ChannelManager) RegisterClient(client *Client) {
 	cm.clients[client.domain] = client
-	cm.dataChannel[client.domain] = make([]*DataChannel, 0)
+	cm.dataChannel[client.domain] = make([]*DomainChannel, 0)
 	go heartbit(client.domain, cm)
 }
 
