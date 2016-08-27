@@ -6,24 +6,24 @@ import (
 	"io"
 	"log"
 	"net/http"
-
-	bsc "github.com/muyuballs/bsc/v2"
 )
 
 type DataChannel struct {
 	Tag           byte
 	Rhost         string
-	Writer        bsc.ChunckWriter
-	Reader        io.Reader
-	CWriter       map[byte]io.Writer
-	domainChannel DomainChannel
+	Writer        io.WriteCloser
+	Reader        io.ReadCloser
+	domainChannel *DomainChannel
 }
 
 func (dc *DataChannel) Close() {
-
+	dc.domainChannel.CloseDataChannel(dc)
+	dc.Writer.Close()
+	dc.Reader.Close()
 }
 
 func (dc *DataChannel) Transfer(w http.ResponseWriter, r *http.Request) {
+	log.Println("start transfer")
 	defer log.Println("transfer done")
 	defer dc.Close()
 	go func() {

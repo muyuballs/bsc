@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"log"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -58,22 +60,7 @@ func delBsct(tag string) {
 	delete(BSCTs, tag)
 }
 
-func welcomeHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("new welcome from", r.RemoteAddr)
-	host := r.Header.Get("host")
-	log.Println("host", host)
-	if host == "" {
-		log.Println("host is null")
-		http.Error(w, "host is null", http.StatusBadRequest)
-		return
-	}
-	dcMgr.HandleWelcome(host, w, r)
-}
-
 func helloHandler(w http.ResponseWriter, r *http.Request) {
-	for k, v := range r.Header {
-		log.Println(k, v)
-	}
 	host := r.Header.Get("hello")
 	rhost := r.Header.Get("rhost")
 	if host == "" {
@@ -100,17 +87,60 @@ func bscHandler(w http.ResponseWriter, r *http.Request) {
 	channel.Transfer(w, r)
 }
 
+func handleWelcome(conn *net.TCPConn) {
+	bufr := bufio.NewReader(conn)
+	dat, _, err := bufr.ReadLine()
+	if err != nil {
+		conn.Close()
+		log.Println(err)
+	}
+	log.Println("wel", string(dat))
+	dcMgr.HandleWelcome(string(dat), conn)
+}
+
+func listenDataConnect(addr string) (err error) {
+	laddr, err := net.ResolveTCPAddr("tcp", addr)
+	if err != nil {
+		return
+	}
+	listener, err := net.ListenTCP("tcp", laddr)
+	if err != nil {
+		return
+	}
+	go func() {
+		for {
+			conn, err := listener.AcceptTCP()
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			log.Println("new data conn", conn.RemoteAddr())
+			go handleWelcome(conn)
+		}
+	}()
+	return
+}
+
 func main() {
 	log.Println("hello bsc-server")
 	addr := flag.String("addr", "", "service port")
+	daddr := flag.String("daddr", "", "data service addr")
 	flag.Parse()
 	if *addr == "" {
 		flag.PrintDefaults()
 		return
 	}
+	if *daddr == "" {
+		flag.PrintDefaults()
+		return
+	}
 	go dcMgr.ListenCtrlMsg()
+	err := listenDataConnect(*daddr)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 	http.HandleFunc("/hello/ws", helloHandler)
-	http.HandleFunc("/welcome/ws", welcomeHandler)
 	http.HandleFunc("/", bscHandler)
-	http.ListenAndServe(*addr, nil)
+	log.Println(http.ListenAndServe(*addr, nil))
 }
