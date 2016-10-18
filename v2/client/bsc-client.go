@@ -99,6 +99,7 @@ func handConn(serverConn *net.TCPConn, taddr *net.TCPAddr) {
 			continue
 		}
 		if block.Type == bsc.TYPE_PING {
+			log.Println("Ping from ", serverConn.LocalAddr().String())
 			pang(serverConn)
 			continue
 		}
