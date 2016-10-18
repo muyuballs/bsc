@@ -15,9 +15,9 @@ type Client struct {
 	Domain  string
 	Rewrite string
 	Service *net.TCPConn
-	pipMap  map[int]*io.PipeWriter
+	pipMap  map[int32]*io.PipeWriter
 	locker  sync.Mutex
-	ref     int
+	ref     int32
 }
 
 func NewClient(domain, rewrite string, svr *net.TCPConn) *Client {
@@ -26,6 +26,7 @@ func NewClient(domain, rewrite string, svr *net.TCPConn) *Client {
 		Rewrite: rewrite,
 		Service: svr,
 		locker:  sync.Mutex{},
+		pipMap:  make(map[int32]*io.PipeWriter),
 	}
 }
 
@@ -46,14 +47,23 @@ func (c *Client) Close() {
 	}
 }
 
+func (c *Client) Remove() {
+	c.Close()
+	clientMap.Remove(c.Domain)
+}
+
 func (c *Client) SendPingMessage() (err error) {
-	_, err = c.Service.Write([]byte{bsc.C_TYPE_P})
+	block := &bsc.Block{
+		Tag:  0,
+		Type: bsc.TYPE_PING,
+	}
+	_, err = block.WriteTo(c.Service)
 	return
 }
 
 func (c Client) StartSerivce() {
 	go func() {
-		defer c.Close()
+		defer c.Remove()
 		reader := bsc.BlockReader{Reader: bufio.NewReader(c.Service)}
 		for {
 			block, err := reader.Read()
@@ -61,17 +71,32 @@ func (c Client) StartSerivce() {
 				log.Println("read domain channel ", err)
 				break
 			}
-			if writer, ok := c.pipMap[block.Tag]; ok {
-				n, err := writer.Write(block.Data)
-				if err != nil || n < len(block.Data) {
-					if err != nil {
-						log.Println(err)
-					} else {
-						log.Println(io.ErrShortWrite)
+			if block.Type == bsc.TYPE_DATA {
+				if writer, ok := c.pipMap[block.Tag]; ok {
+					n, err := writer.Write(block.Data)
+					if err != nil || n < len(block.Data) {
+						if err != nil {
+							log.Println(err)
+						} else {
+							log.Println(io.ErrShortWrite)
+						}
+						writer.Close()
+						delete(c.pipMap, block.Tag)
 					}
-					delete(c.pipMap, block.Tag)
 				}
 			}
+			if block.Type == bsc.TYPE_CLOSE {
+				if writer, ok := c.pipMap[block.Tag]; ok {
+					writer.Close()
+					delete(c.pipMap, block.Tag)
+				}
+				continue
+			}
+			if block.Type == bsc.TYPE_PANG {
+				log.Println("Pong from", c.Service.RemoteAddr().String())
+				continue
+			}
+			log.Println("not support block type", block.Type)
 		}
 	}()
 }
@@ -95,6 +120,7 @@ func (c *Client) Transfer(w http.ResponseWriter, r *http.Request) {
 	channel := c.CreateDataChannel()
 	if channel == nil {
 		bsc.ServiceUnavailable(w, r)
+		return
 	}
 	channel.Transfer(w, r)
 }

@@ -36,10 +36,8 @@ func handleControlOrDataConnection(conn *net.TCPConn) {
 		return
 	}
 	switch c_type {
-	case bsc.C_TYPE_C:
+	case bsc.TYPE_INIT:
 		handleControlConn(conn)
-	case bsc.C_TYPE_Q:
-		log.Println("Pong from", conn.RemoteAddr().String())
 	default:
 		log.Println("not support c_type:", c_type)
 		conn.Close()
@@ -47,7 +45,7 @@ func handleControlOrDataConnection(conn *net.TCPConn) {
 }
 
 func pingTask() {
-	for _ = range time.Tick(30 * time.Second) {
+	for _ = range time.Tick(10 * time.Second) {
 		errClients := make([]string, 0)
 		for domain, client := range clientMap.clients {
 			if err := client.SendPingMessage(); err != nil {

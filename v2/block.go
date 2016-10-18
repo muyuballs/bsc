@@ -10,18 +10,17 @@ import (
 )
 
 const (
-	C_TYPE_C = 0
-	C_TYPE_P = 1
-	C_TYPE_Q = 2
-
-	BL_TYPE_DATA  = 0
-	BL_TYPE_OPEN  = 1
-	BL_TYPE_CLOSE = 2
+	TYPE_INIT  = 0
+	TYPE_DATA  = 1
+	TYPE_OPEN  = 2
+	TYPE_CLOSE = 3
+	TYPE_PING  = 5
+	TYPE_PANG  = 6
 )
 
 type Block struct {
-	Type byte
-	Tag  int
+	Type int8
+	Tag  int32
 	Data []byte
 }
 
@@ -31,15 +30,15 @@ func (block Block) WriteTo(w *net.TCPConn) (rs int, err error) {
 	if block.Data != nil {
 		dataLen += len(block.Data)
 	}
-	err = binary.Write(bw, binary.BigEndian, dataLen)
+	err = binary.Write(bw, binary.BigEndian, int32(dataLen))
 	if err != nil {
 		return
 	}
-	err = binary.Write(bw, binary.BigEndian, block.Tag)
+	err = binary.Write(bw, binary.BigEndian, int32(block.Tag))
 	if err != nil {
 		return
 	}
-	err = binary.Write(bw, binary.BigEndian, block.Type)
+	err = binary.Write(bw, binary.BigEndian, int8(block.Type))
 	if err != nil {
 		return
 	}
@@ -61,21 +60,21 @@ func (block Block) WriteTo(w *net.TCPConn) (rs int, err error) {
 
 type BlockWriter struct {
 	closed     bool
-	Tag        int
+	Tag        int32
 	LastAccess time.Time
 	Writer     *net.TCPConn
 }
 
-func (blockWriter BlockWriter) WriteBlock(tp int, dat []byte) (n int, err error) {
+func (blockWriter BlockWriter) WriteBlock(tp int8, dat []byte) (n int, err error) {
 	if blockWriter.closed {
 		return 0, errors.New("writer closed")
 	}
-	block := Block{Data: dat, Tag: blockWriter.Tag, Type: byte(tp)}
+	block := Block{Data: dat, Tag: blockWriter.Tag, Type: tp}
 	return block.WriteTo(blockWriter.Writer)
 }
 
 func (blockWriter BlockWriter) Write(p []byte) (n int, err error) {
-	return blockWriter.WriteBlock(BL_TYPE_DATA, p)
+	return blockWriter.WriteBlock(TYPE_DATA, p)
 }
 
 func (blockWriter BlockWriter) Close() error {
@@ -83,7 +82,7 @@ func (blockWriter BlockWriter) Close() error {
 	return nil
 }
 
-func NewBlockWriter(w *net.TCPConn, tag int) BlockWriter {
+func NewBlockWriter(w *net.TCPConn, tag int32) BlockWriter {
 	return BlockWriter{Writer: w, closed: false, Tag: tag}
 }
 

@@ -6,6 +6,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+
+	bsc "github.com/muyuballs/bsc/v2"
 )
 
 type DataChannelManager interface {
@@ -13,17 +15,22 @@ type DataChannelManager interface {
 }
 
 type DataChannel struct {
-	SID    int
+	SID    int32
 	Rhost  string
-	Writer io.WriteCloser
+	Writer bsc.BlockWriter
 	Reader io.ReadCloser
 	Mgr    DataChannelManager
 }
 
 func (dc *DataChannel) Close() {
 	dc.Mgr.CloseDataChannel(dc)
+	dc.Writer.WriteBlock(bsc.TYPE_CLOSE, nil)
 	dc.Writer.Close()
 	dc.Reader.Close()
+}
+
+func (dc *DataChannel) Write(dat []byte) {
+	dc.Writer.WriteBlock(bsc.TYPE_DATA, dat)
 }
 
 func (dc *DataChannel) Transfer(w http.ResponseWriter, r *http.Request) {
@@ -31,21 +38,22 @@ func (dc *DataChannel) Transfer(w http.ResponseWriter, r *http.Request) {
 	defer log.Println("transfer done")
 	defer dc.Close()
 	go func() {
-		dc.Writer.Write([]byte(fmt.Sprintf("%s %s %s\r\n", r.Method, r.RequestURI, r.Proto)))
+		dc.Writer.WriteBlock(bsc.TYPE_OPEN, nil)
+		dc.Write([]byte(fmt.Sprintf("%s %s %s\r\n", r.Method, r.RequestURI, r.Proto)))
 		if dc.Rhost != "" {
 			log.Println("rewrite host", r.Host, "-->", dc.Rhost)
-			dc.Writer.Write([]byte(fmt.Sprintf("Host: %s\r\n", dc.Rhost)))
+			dc.Write([]byte(fmt.Sprintf("Host: %s\r\n", dc.Rhost)))
 		} else {
-			dc.Writer.Write([]byte(fmt.Sprintf("Host: %s\r\n", r.Host)))
+			dc.Write([]byte(fmt.Sprintf("Host: %s\r\n", r.Host)))
 		}
 		r.Header.WriteSubset(dc.Writer, map[string]bool{"Host": true})
-		dc.Writer.Write([]byte("\r\n"))
+		dc.Write([]byte("\r\n"))
 		_, err := io.Copy(dc.Writer, r.Body)
 		if err != nil {
 			log.Println("copy request body", err)
 			return
 		}
-		dc.Writer.Write([]byte("\r\n"))
+		dc.Write([]byte("\r\n"))
 		log.Println("request body copy done")
 	}()
 	log.Println("start copy response")

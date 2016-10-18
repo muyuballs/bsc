@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"io"
 	"log"
@@ -15,11 +16,7 @@ var domain = flag.String("domain", "", "service public domain")
 var rhost = flag.String("rhost", "", "host rewrite to")
 var target = flag.String("target", "", "target service addr")
 
-var (
-	CWriter = make(map[int]io.Writer)
-)
-
-func openConn(taddr *net.TCPAddr) (conn *net.TCPConn, err error) {
+func dialTarget(taddr *net.TCPAddr) (conn *net.TCPConn, err error) {
 	log.Println("dial taddr", taddr)
 	dConn, err := net.DialTCP("tcp", nil, taddr)
 	if err != nil {
@@ -30,43 +27,70 @@ func openConn(taddr *net.TCPAddr) (conn *net.TCPConn, err error) {
 	return dConn, nil
 }
 
-func handConn(dConn *net.TCPConn, taddr *net.TCPAddr) {
-	defer dConn.Close()
-	CWriter = make(map[int]io.Writer)
-	blockReader := bsc.BlockReader{Reader: dConn}
+func closeTag(conn *net.TCPConn, tag int32, err error) {
+	log.Println("close channel", tag, err)
+	b := bsc.Block{Tag: tag, Type: bsc.TYPE_CLOSE}
+	b.WriteTo(conn)
+}
+
+func pang(conn *net.TCPConn) {
+	b := bsc.Block{Type: bsc.TYPE_PANG}
+	b.WriteTo(conn)
+}
+
+func handConn(serverConn *net.TCPConn, taddr *net.TCPAddr) {
+	defer serverConn.Close()
+	targets := make(map[int32]*net.TCPConn)
+	blockReader := bsc.BlockReader{Reader: serverConn}
 	for {
 		block, err := blockReader.Read()
 		if err != nil {
 			log.Println("read data channel ", err)
 			break
 		}
-		if block.Type == bsc.BL_TYPE_CLOSE {
-			log.Println("close channel", block.Tag)
-			delete(CWriter, block.Tag)
+		if block.Type == bsc.TYPE_DATA {
+			if target, ok := targets[block.Tag]; ok {
+				n, err := target.Write(block.Data)
+				if err != nil || n < len(block.Data) {
+					if err == nil {
+						err = io.ErrShortWrite
+					}
+					closeTag(serverConn, block.Tag, err)
+					delete(targets, block.Tag)
+				}
+			} else {
+				closeTag(serverConn, block.Tag, errors.New("channel target not found"))
+			}
 			continue
 		}
-		if block.Type == bsc.BL_TYPE_OPEN {
+		if block.Type == bsc.TYPE_OPEN {
 			log.Println("open channel", block.Tag)
-			tConn, err := openConn(taddr)
+			targetConn, err := dialTarget(taddr)
 			if err != nil {
+				closeTag(serverConn, block.Tag, err)
 				continue
 			}
-			go io.Copy(bsc.NewBlockWriter(dConn, block.Tag), tConn)
-			CWriter[block.Tag] = tConn
+			targets[block.Tag] = targetConn
+			go func() {
+				io.Copy(bsc.NewBlockWriter(serverConn, block.Tag), targetConn)
+				closeTag(serverConn, block.Tag, errors.New("copy done."))
+			}()
+			continue
 		}
-		if writer, ok := CWriter[block.Tag]; ok {
-			n, err := writer.Write(block.Data)
-			if err != nil || n < len(block.Data) {
-				if err != nil {
-					log.Println(err)
-				} else {
-					log.Println(io.ErrShortWrite)
-				}
-				delete(CWriter, block.Tag)
+		if block.Type == bsc.TYPE_CLOSE {
+			log.Println("close channel by server", block.Tag)
+			if target, ok := targets[block.Tag]; ok {
+				target.Close()
+				delete(targets, block.Tag)
 			}
+			continue
 		}
+		if block.Type == bsc.TYPE_PING {
+			pang(serverConn)
+			continue
+		}
+		log.Println("not support block type", block.Type)
 	}
-
 }
 
 //
@@ -101,7 +125,7 @@ func main() {
 		log.Println(err)
 		return
 	}
-	conn.Write([]byte{bsc.C_TYPE_C})
+	conn.Write([]byte{bsc.TYPE_INIT})
 	ben.WriteLDString(conn, *domain)
 	ben.WriteLDString(conn, *rhost)
 	handConn(conn, taddr)
