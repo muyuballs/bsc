@@ -84,6 +84,7 @@ func (c Client) StartSerivce() {
 						delete(c.pipMap, block.Tag)
 					}
 				}
+				continue
 			}
 			if block.Type == bsc.TYPE_CLOSE {
 				if writer, ok := c.pipMap[block.Tag]; ok {

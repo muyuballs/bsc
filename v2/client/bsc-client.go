@@ -1,11 +1,13 @@
 package main
 
 import (
+	"crypto/tls"
 	"errors"
 	"flag"
 	"io"
 	"log"
 	"net"
+	"time"
 
 	bsc "github.com/muyuballs/bsc/v2"
 	"github.com/muyuballs/bsc/v2/ben"
@@ -15,9 +17,20 @@ var serverAddr = flag.String("server", "", "bsc server addr")
 var domain = flag.String("domain", "", "service public domain")
 var rhost = flag.String("rhost", "", "host rewrite to")
 var target = flag.String("target", "", "target service addr")
+var retry = flag.Int("retry count", -1, "retry count default -1 for ever")
+var isTls = flag.Bool("tls", false, "is https")
 
-func dialTarget(taddr *net.TCPAddr) (conn *net.TCPConn, err error) {
+func dialTarget(taddr *net.TCPAddr) (conn io.ReadWriteCloser, err error) {
 	log.Println("dial taddr", taddr)
+	if taddr.Port == 443 || *isTls {
+		dConn, err := tls.Dial("tcp", taddr.String(), &tls.Config{InsecureSkipVerify: true})
+		if err != nil {
+			log.Println("dial taddr:", err)
+			return nil, err
+		}
+		log.Println("dial taddr with tls done.")
+		return dConn, nil
+	}
 	dConn, err := net.DialTCP("tcp", nil, taddr)
 	if err != nil {
 		log.Println("dial taddr:", err)
@@ -40,7 +53,7 @@ func pang(conn *net.TCPConn) {
 
 func handConn(serverConn *net.TCPConn, taddr *net.TCPAddr) {
 	defer serverConn.Close()
-	targets := make(map[int32]*net.TCPConn)
+	targets := make(map[int32]io.ReadWriteCloser)
 	blockReader := bsc.BlockReader{Reader: serverConn}
 	for {
 		block, err := blockReader.Read()
@@ -120,13 +133,18 @@ func main() {
 		log.Println(err)
 		return
 	}
-	conn, err := net.DialTCP("tcp", nil, daddr)
-	if err != nil {
-		log.Println(err)
-		return
+	var retryCount = 0
+	for *retry == -1 || retryCount <= *retry {
+		conn, err := net.DialTCP("tcp", nil, daddr)
+		if err == nil {
+			conn.Write([]byte{bsc.TYPE_INIT})
+			ben.WriteLDString(conn, *domain)
+			ben.WriteLDString(conn, *rhost)
+			handConn(conn, taddr)
+		}
+		retryCount++
+		atTime := time.Now().Add(10 * time.Second)
+		log.Println("retry connect server @", atTime)
+		time.Sleep(10 * time.Second)
 	}
-	conn.Write([]byte{bsc.TYPE_INIT})
-	ben.WriteLDString(conn, *domain)
-	ben.WriteLDString(conn, *rhost)
-	handConn(conn, taddr)
 }
