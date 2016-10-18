@@ -8,18 +8,22 @@ import (
 	"net/http"
 )
 
+type DataChannelManager interface {
+	CloseDataChannel(*DataChannel)
+}
+
 type DataChannel struct {
-	Tag           byte
-	Rhost         string
-	Writer        io.WriteCloser
-	Reader        io.ReadCloser
-	domainChannel *DomainChannel
+	SID    int
+	Rhost  string
+	Writer io.WriteCloser
+	Reader io.ReadCloser
+	Mgr    DataChannelManager
 }
 
 func (dc *DataChannel) Close() {
-	dc.domainChannel.CloseDataChannel(dc)
 	dc.Writer.Close()
 	dc.Reader.Close()
+	dc.Mgr.CloseDataChannel(dc)
 }
 
 func (dc *DataChannel) Transfer(w http.ResponseWriter, r *http.Request) {

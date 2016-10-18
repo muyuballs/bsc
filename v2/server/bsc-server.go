@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"log"
 	"net"
@@ -9,96 +8,58 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
+	bsc "github.com/muyuballs/bsc/v2"
 )
-
-const (
-	DATA_CH_TIME_OUT = time.Second * 30
-)
-
-type CLMSG struct {
-	conn    *websocket.Conn
-	msgType int
-	msg     []byte
-}
-
-type BSCT struct {
-	w       http.ResponseWriter
-	r       *http.Request
-	host    string
-	welcome chan *websocket.Conn
-}
-
-type Client struct {
-	conn   *websocket.Conn
-	domain string
-	rhost  string
-}
-
-func (bsct *BSCT) Error() {
-	http.Error(bsct.w, "Service Unavailable", http.StatusServiceUnavailable)
-	bsct.r.Body.Close()
-}
 
 var (
-	BSCTs      = make(map[string]*BSCT)
-	upgrader   = websocket.Upgrader{}
-	bsctsMutex = sync.Mutex{}
-	clmsgChan  = make(chan CLMSG, 10)
-	dcMgr      = NewChannelManager()
+	clientMap = &ClientMap{
+		locker:  sync.Mutex{},
+		clients: make(map[string]*Client),
+	}
 )
 
-func putBsct(tag string, bsct *BSCT) {
-	defer bsctsMutex.Unlock()
-	bsctsMutex.Lock()
-	BSCTs[tag] = bsct
-}
-
-func delBsct(tag string) {
-	defer bsctsMutex.Unlock()
-	bsctsMutex.Lock()
-	delete(BSCTs, tag)
-}
-
-func helloHandler(w http.ResponseWriter, r *http.Request) {
-	host := r.Header.Get("hello")
-	rhost := r.Header.Get("rhost")
-	if host == "" {
-		http.Error(w, "hello is null", http.StatusBadRequest)
-		return
-	}
-	c, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println("upgrade:", err)
-		return
-	}
-	log.Println("new hello from", r.RemoteAddr, "@", host)
-	dcMgr.RegisterClient(&Client{conn: c, domain: host, rhost: rhost})
-}
-
 func bscHandler(w http.ResponseWriter, r *http.Request) {
-	channel, err := dcMgr.OpenChannel(r.Host)
-	if channel == nil || err != nil {
-		http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
+	if client, ok := clientMap.clients[r.Host]; ok {
+		client.Transfer(w, r)
+	} else {
+		bsc.ServiceUnavailable(w, r)
+		log.Println("no client service for", r.Host)
+	}
+}
+
+func handleControlOrDataConnection(conn *net.TCPConn) {
+	c_type, err := bsc.ReadByte(conn)
+	if err != nil {
 		log.Println(err)
-		log.Println("create client data channel error")
+		conn.Close()
 		return
 	}
-	channel.Transfer(w, r)
-}
-
-func handleWelcome(conn *net.TCPConn) {
-	bufr := bufio.NewReader(conn)
-	dat, _, err := bufr.ReadLine()
-	if err != nil {
+	switch c_type {
+	case bsc.C_TYPE_C:
+		handleControlConn(conn)
+	case bsc.C_TYPE_Q:
+		log.Println("Pong from", conn.RemoteAddr().String())
+	default:
+		log.Println("not support c_type:", c_type)
 		conn.Close()
-		log.Println(err)
 	}
-	log.Println("wel", string(dat))
-	dcMgr.HandleWelcome(string(dat), conn)
 }
 
-func listenDataConnect(addr string) (err error) {
+func pingTask() {
+	for _ = range time.Tick(30 * time.Second) {
+		errClients := make([]string, 0)
+		for domain, client := range clientMap.clients {
+			if err := client.SendPingMessage(); err != nil {
+				log.Println(err)
+				client.Close()
+				errClients = append(errClients, domain)
+			}
+		}
+		clientMap.RemoveAll(errClients)
+	}
+}
+
+func listenControlAndDataPort(addr string) (err error) {
 	laddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		return
@@ -111,11 +72,10 @@ func listenDataConnect(addr string) (err error) {
 		for {
 			conn, err := listener.AcceptTCP()
 			if err != nil {
-				log.Println(err)
+				panic(err)
 				return
 			}
-			log.Println("new data conn", conn.RemoteAddr())
-			go handleWelcome(conn)
+			go handleControlOrDataConnection(conn)
 		}
 	}()
 	return
@@ -123,24 +83,23 @@ func listenDataConnect(addr string) (err error) {
 
 func main() {
 	log.Println("hello bsc-server")
-	addr := flag.String("addr", "", "service port")
-	daddr := flag.String("daddr", "", "data service addr")
+	httpAddr := flag.String("http", "", "http listen address")
+	tcp := flag.String("tcp", "", "data & control listen address")
 	flag.Parse()
-	if *addr == "" {
+	if *httpAddr == "" {
 		flag.PrintDefaults()
 		return
 	}
-	if *daddr == "" {
+	if *tcp == "" {
 		flag.PrintDefaults()
 		return
 	}
-	go dcMgr.ListenCtrlMsg()
-	err := listenDataConnect(*daddr)
+	err := listenControlAndDataPort(*tcp)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	http.HandleFunc("/hello/ws", helloHandler)
+	go pingTask()
 	http.HandleFunc("/", bscHandler)
-	log.Println(http.ListenAndServe(*addr, nil))
+	log.Println(http.ListenAndServe(*httpAddr, nil))
 }

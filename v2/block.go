@@ -10,6 +10,10 @@ import (
 )
 
 const (
+	C_TYPE_C = 0
+	C_TYPE_P = 1
+	C_TYPE_Q = 2
+
 	BL_TYPE_DATA  = 0
 	BL_TYPE_OPEN  = 1
 	BL_TYPE_CLOSE = 2
@@ -17,33 +21,35 @@ const (
 
 type Block struct {
 	Type byte
-	Tag  byte
+	Tag  int
 	Data []byte
 }
 
 func (block Block) WriteTo(w *net.TCPConn) (rs int, err error) {
 	bw := bufio.NewWriter(w)
-	lenBuf := make([]byte, 6)
-	dataLen := 6
+	dataLen := 4 + 1 + 4
 	if block.Data != nil {
 		dataLen += len(block.Data)
 	}
-	binary.BigEndian.PutUint32(lenBuf, uint32(dataLen))
-	lenBuf[4] = block.Tag
-	lenBuf[5] = block.Type
-	n, err := bw.Write(lenBuf)
-	if n < len(lenBuf) {
-		err = io.ErrShortWrite
+	err = binary.Write(bw, binary.BigEndian, dataLen)
+	if err != nil {
 		return
 	}
+	err = binary.Write(bw, binary.BigEndian, block.Tag)
+	if err != nil {
+		return
+	}
+	err = binary.Write(bw, binary.BigEndian, block.Type)
 	if err != nil {
 		return
 	}
 	if block.Data != nil && len(block.Data) > 0 {
-		n, err = bw.Write(block.Data)
+		n, err := bw.Write(block.Data)
+		if err != nil {
+			return n, err
+		}
 		if n < len(block.Data) {
-			err = io.ErrShortWrite
-			return
+			return n, io.ErrShortWrite
 		}
 		rs += n
 	}
@@ -55,7 +61,7 @@ func (block Block) WriteTo(w *net.TCPConn) (rs int, err error) {
 
 type BlockWriter struct {
 	closed     bool
-	Tag        byte
+	Tag        int
 	LastAccess time.Time
 	Writer     *net.TCPConn
 }
@@ -77,7 +83,7 @@ func (blockWriter BlockWriter) Close() error {
 	return nil
 }
 
-func NewBlockWriter(w *net.TCPConn, tag byte) BlockWriter {
+func NewBlockWriter(w *net.TCPConn, tag int) BlockWriter {
 	return BlockWriter{Writer: w, closed: false, Tag: tag}
 }
 
@@ -87,16 +93,23 @@ type BlockReader struct {
 }
 
 func (blockReader BlockReader) Read() (block *Block, err error) {
-	blockReader.LastAccess = time.Now()
-	headBuf := make([]byte, 6)
-	_, err = io.ReadFull(blockReader.Reader, headBuf)
+	block = &Block{}
+	blockSize := 0
+	err = binary.Read(blockReader.Reader, binary.BigEndian, &blockSize)
 	if err != nil {
-		return nil, err
+		return
 	}
-	block = &Block{Tag: headBuf[4], Type: headBuf[5]}
-	bodyLen := binary.BigEndian.Uint32(headBuf) - 6
-	if bodyLen > 0 {
-		block.Data = make([]byte, bodyLen)
+	err = binary.Read(blockReader.Reader, binary.BigEndian, &block.Tag)
+	if err != nil {
+		return
+	}
+	err = binary.Read(blockReader.Reader, binary.BigEndian, &block.Type)
+	if err != nil {
+		return
+	}
+	bodySize := blockSize - 9
+	if bodySize > 0 {
+		block.Data = make([]byte, bodySize)
 		_, err = io.ReadFull(blockReader.Reader, block.Data)
 		if err != nil {
 			return nil, err
