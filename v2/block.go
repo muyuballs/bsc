@@ -94,7 +94,7 @@ type BlockReader struct {
 
 func (blockReader BlockReader) Read() (block *Block, err error) {
 	block = &Block{}
-	blockSize := 0
+	var blockSize int32 = 0
 	err = binary.Read(blockReader.Reader, binary.BigEndian, &blockSize)
 	if err != nil {
 		return

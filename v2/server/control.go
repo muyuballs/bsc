@@ -25,7 +25,7 @@ func handleControlConn(conn *net.TCPConn) {
 		conn.Close()
 		return
 	}
-
+	log.Println("new client", domain, rewrite)
 	client := NewClient(domain, rewrite, conn)
 	clientMap.Append(client)
 	client.StartSerivce()

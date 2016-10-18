@@ -28,6 +28,7 @@ func bscHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleControlOrDataConnection(conn *net.TCPConn) {
+	log.Println("new client from", conn.RemoteAddr().String())
 	c_type, err := bsc.ReadByte(conn)
 	if err != nil {
 		log.Println(err)

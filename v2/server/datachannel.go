@@ -21,9 +21,9 @@ type DataChannel struct {
 }
 
 func (dc *DataChannel) Close() {
+	dc.Mgr.CloseDataChannel(dc)
 	dc.Writer.Close()
 	dc.Reader.Close()
-	dc.Mgr.CloseDataChannel(dc)
 }
 
 func (dc *DataChannel) Transfer(w http.ResponseWriter, r *http.Request) {
