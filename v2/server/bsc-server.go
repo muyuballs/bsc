@@ -19,8 +19,9 @@ var (
 )
 
 func bscHandler(w http.ResponseWriter, r *http.Request) {
+	startTime := time.Now()
 	if client, ok := clientMap.clients[r.Host]; ok {
-		client.Transfer(w, r)
+		client.Transfer(w, r, startTime)
 	} else {
 		bsc.ServiceUnavailable(w, r)
 		log.Println("no client service for", r.Host)
@@ -36,7 +37,7 @@ func handleControlOrDataConnection(conn *net.TCPConn) {
 		return
 	}
 	switch c_type {
-	case bsc.TYPE_INIT:
+	case bsc.TYPE_HTTP:
 		handleControlConn(conn)
 	default:
 		log.Println("not support c_type:", c_type)

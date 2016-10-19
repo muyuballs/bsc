@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"time"
 
 	bsc "github.com/muyuballs/bsc/v2"
 )
@@ -117,11 +118,11 @@ func (c *Client) CreateDataChannel() *DataChannel {
 	}
 }
 
-func (c *Client) Transfer(w http.ResponseWriter, r *http.Request) {
+func (c *Client) Transfer(w http.ResponseWriter, r *http.Request, st time.Time) {
 	channel := c.CreateDataChannel()
 	if channel == nil {
 		bsc.ServiceUnavailable(w, r)
 		return
 	}
-	channel.Transfer(w, r)
+	channel.Transfer(w, r, st)
 }
