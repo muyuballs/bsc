@@ -138,9 +138,10 @@ func main() {
 	for *retry == -1 || retryCount <= *retry {
 		conn, err := net.DialTCP("tcp", nil, daddr)
 		if err == nil {
+			conn.SetKeepAlive(true)
 			conn.Write([]byte{bsc.TYPE_INIT})
-			ben.WriteLDString(conn, *domain)
-			ben.WriteLDString(conn, *rhost)
+			ben.WriteString(conn, *domain)
+			ben.WriteString(conn, *rhost)
 			handConn(conn, taddr)
 		}
 		retryCount++

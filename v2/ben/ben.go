@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-func ReadLDString(r io.Reader) (rel string, err error) {
+func ReadString(r io.Reader) (rel string, err error) {
 	var length int32 = 0
 	err = binary.Read(r, binary.BigEndian, &length)
 	if err != nil {
@@ -26,7 +26,7 @@ func ReadLDString(r io.Reader) (rel string, err error) {
 	return string(buf), nil
 }
 
-func WriteLDString(w io.Writer, str string) (err error) {
+func WriteString(w io.Writer, str string) (err error) {
 	err = binary.Write(w, binary.BigEndian, int32(len(str)))
 	if err == nil {
 		_, err = w.Write([]byte(str))

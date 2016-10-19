@@ -8,7 +8,7 @@ import (
 )
 
 func handleControlConn(conn *net.TCPConn) {
-	domain, err := ben.ReadLDString(conn)
+	domain, err := ben.ReadString(conn)
 	if err != nil {
 		log.Println(err)
 		conn.Close()
@@ -19,7 +19,7 @@ func handleControlConn(conn *net.TCPConn) {
 		conn.Close()
 		return
 	}
-	rewrite, err := ben.ReadLDString(conn)
+	rewrite, err := ben.ReadString(conn)
 	if err != nil {
 		log.Println(err)
 		conn.Close()
