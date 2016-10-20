@@ -13,6 +13,7 @@ import (
 )
 
 type Client struct {
+	Type    int
 	Domain  string
 	Rewrite string
 	Service *net.TCPConn
@@ -23,8 +24,18 @@ type Client struct {
 
 func NewClient(domain, rewrite string, svr *net.TCPConn) *Client {
 	return &Client{
+		Type:    bsc.TYPE_HTTP,
 		Domain:  domain,
 		Rewrite: rewrite,
+		Service: svr,
+		locker:  sync.Mutex{},
+		pipMap:  make(map[int32]*io.PipeWriter),
+	}
+}
+
+func NewTcpClient(port int, svr *net.TCPConn) *Client {
+	return &Client{
+		Type:    bsc.TYPE_TCP,
 		Service: svr,
 		locker:  sync.Mutex{},
 		pipMap:  make(map[int32]*io.PipeWriter),
@@ -125,4 +136,14 @@ func (c *Client) Transfer(w http.ResponseWriter, r *http.Request, st time.Time) 
 		return
 	}
 	channel.Transfer(w, r, st)
+}
+
+func (c *Client) TransferTcp(conn *net.TCPConn) {
+	channel := c.CreateDataChannel()
+	if channel == nil {
+		conn.Close()
+		c.Close()
+		return
+	}
+	channel.TransferTcp(conn)
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"time"
 
@@ -85,4 +86,12 @@ func (dc *DataChannel) Transfer(w http.ResponseWriter, r *http.Request, handReqT
 	if resp.Body != nil {
 		io.CopyBuffer(w, resp.Body, make([]byte, 8*1024))
 	}
+}
+
+func (dc *DataChannel) TransferTcp(conn *net.TCPConn) {
+	log.Println("start transfer")
+	defer log.Println("transfer done")
+	defer dc.Close()
+	go io.CopyBuffer(dc.Writer, conn, make([]byte, 8*1024))
+	io.CopyBuffer(conn, dc.Reader, make([]byte, 8*1024))
 }

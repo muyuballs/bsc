@@ -39,6 +39,8 @@ func handleControlOrDataConnection(conn *net.TCPConn) {
 	switch c_type {
 	case bsc.TYPE_HTTP:
 		handleControlConn(conn)
+	case bsc.TYPE_TCP:
+		handleTcpTunConn(conn)
 	default:
 		log.Println("not support c_type:", c_type)
 		conn.Close()
