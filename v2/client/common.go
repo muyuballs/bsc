@@ -39,11 +39,12 @@ func handConn(tType int, bscConn *net.TCPConn, targetAddr *net.TCPAddr) {
 			if target, ok := targets[block.Tag]; ok {
 				n, err := target.Write(block.Data)
 				if err != nil || n < len(block.Data) {
+					delete(targets, block.Tag)
+					target.Close()
 					if err == nil {
 						err = io.ErrShortWrite
 					}
 					closeTag(bscConn, block.Tag, err)
-					delete(targets, block.Tag)
 				}
 			} else {
 				closeTag(bscConn, block.Tag, errors.New("channel target not found"))
@@ -52,6 +53,11 @@ func handConn(tType int, bscConn *net.TCPConn, targetAddr *net.TCPAddr) {
 		}
 		if block.Type == bsc.TYPE_OPEN {
 			log.Println("open channel", block.Tag)
+			if target, ok := targets[block.Tag]; ok {
+				delete(targets, block.Tag)
+				target.Close()
+				closeTag(bscConn, block.Tag, errors.New("close finished channel"))
+			}
 			if tType == HTTP {
 				openHttpChannel(bscConn, block.Tag, targetAddr)
 			} else if tType == TCP {
@@ -62,8 +68,8 @@ func handConn(tType int, bscConn *net.TCPConn, targetAddr *net.TCPAddr) {
 		if block.Type == bsc.TYPE_CLOSE {
 			log.Println("close channel by server", block.Tag)
 			if target, ok := targets[block.Tag]; ok {
-				target.Close()
 				delete(targets, block.Tag)
+				target.Close()
 			}
 			continue
 		}
