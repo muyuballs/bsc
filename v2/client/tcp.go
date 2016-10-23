@@ -66,7 +66,11 @@ func openTcpChannel(bscConn *net.TCPConn, tag int32, targetAddr *net.TCPAddr) {
 	}
 	targets[tag] = targetConn
 	go func(tag int32) {
-		io.Copy(bsc.NewBlockWriter(bscConn, tag), bufio.NewReader(targetConn))
+		_, err := io.Copy(bsc.NewBlockWriter(bscConn, tag), bufio.NewReader(targetConn))
+		if err != nil {
+			log.Println("copy", err)
+			return
+		}
 		closeTag(bscConn, tag, errors.New("copy done."))
 	}(tag)
 }

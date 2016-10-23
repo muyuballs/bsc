@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"io"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	"sync"
@@ -19,7 +20,7 @@ type Client struct {
 	Service *net.TCPConn
 	pipMap  map[int32]*io.PipeWriter
 	locker  sync.Mutex
-	ref     int32
+	r       *rand.Rand
 }
 
 func NewClient(domain, rewrite string, svr *net.TCPConn) *Client {
@@ -30,6 +31,7 @@ func NewClient(domain, rewrite string, svr *net.TCPConn) *Client {
 		Service: svr,
 		locker:  sync.Mutex{},
 		pipMap:  make(map[int32]*io.PipeWriter),
+		r:       rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 
@@ -45,7 +47,6 @@ func NewTcpClient(port int, svr *net.TCPConn) *Client {
 func (c *Client) CloseDataChannel(channel *DataChannel) {
 	defer c.locker.Unlock()
 	c.locker.Lock()
-	c.ref--
 	if w, ok := c.pipMap[channel.SID]; ok {
 		delete(c.pipMap, channel.SID)
 		w.Close()
@@ -121,13 +122,13 @@ func (c Client) StartSerivce() {
 func (c *Client) CreateDataChannel() *DataChannel {
 	defer c.locker.Unlock()
 	c.locker.Lock()
-	c.ref++
+	sid := c.r.Int31()
 	r, w := io.Pipe()
-	c.pipMap[c.ref] = w
+	c.pipMap[sid] = w
 	return &DataChannel{
-		SID:    c.ref,
+		SID:    sid,
 		Rhost:  c.Rewrite,
-		Writer: bsc.NewBlockWriter(bsc.NewTrackWriter(CH_C_OUT, c.Service), c.ref),
+		Writer: bsc.NewBlockWriter(bsc.NewTrackWriter(CH_C_OUT, c.Service), sid),
 		Reader: bsc.NewTrackReader(CH_C_IN, r),
 		Mgr:    c,
 	}

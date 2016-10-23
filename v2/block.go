@@ -65,20 +65,20 @@ type BlockWriter struct {
 	Writer     io.WriteCloser
 }
 
-func (blockWriter BlockWriter) WriteBlock(tp int8, dat []byte) (n int, err error) {
-	if blockWriter.closed {
+func (w BlockWriter) WriteBlock(tp int8, dat []byte) (n int, err error) {
+	if w.closed {
 		return 0, errors.New("writer closed")
 	}
-	block := Block{Data: dat, Tag: blockWriter.Tag, Type: tp}
-	return block.WriteTo(blockWriter.Writer)
+	block := Block{Data: dat, Tag: w.Tag, Type: tp}
+	return block.WriteTo(w.Writer)
 }
 
-func (blockWriter BlockWriter) Write(p []byte) (n int, err error) {
-	return blockWriter.WriteBlock(TYPE_DATA, p)
+func (w BlockWriter) Write(p []byte) (n int, err error) {
+	return w.WriteBlock(TYPE_DATA, p)
 }
 
-func (blockWriter BlockWriter) Close() error {
-	blockWriter.closed = true
+func (w BlockWriter) Close() error {
+	w.closed = true
 	return nil
 }
 

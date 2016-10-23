@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 )
@@ -61,4 +62,31 @@ func (w TrackWriter) Write(p []byte) (n int, err error) {
 
 func (w TrackWriter) Close() error {
 	return w.writer.Close()
+}
+
+const (
+	KB = 1 << 10
+	MB = 1 << 20
+	GB = 1 << 30
+	TB = 1 << 40
+	PB = 1 << 50
+)
+
+func FormatSize(val int64) string {
+	if val > PB {
+		return fmt.Sprintf("%vPB", val/PB)
+	}
+	if val > TB {
+		return fmt.Sprintf("%vTB", val/TB)
+	}
+	if val > GB {
+		return fmt.Sprintf("%vGB", val/GB)
+	}
+	if val > MB {
+		return fmt.Sprintf("%vMB", val/MB)
+	}
+	if val > KB {
+		return fmt.Sprintf("%vKB", val/KB)
+	}
+	return fmt.Sprintf("%dB", val)
 }

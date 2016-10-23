@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -101,21 +100,8 @@ func infoTask() {
 		cos := clientOut - _co
 		_ci = clientIn
 		_co = clientOut
-		log.Printf("Client >> In:%s Out:%s \n", formatSpeed(cis), formatSpeed(cos))
+		log.Printf("Client >> In:%s Out:%s \n", bsc.FormatSize(cis), bsc.FormatSize(cos))
 	}
-}
-
-func formatSpeed(val int64) string {
-	if val>>30 > 0 {
-		return fmt.Sprintf("%vGB", val*1.0/(1<<30))
-	}
-	if val>>20 > 0 {
-		return fmt.Sprintf("%vMB", val*1.0/(1<<20))
-	}
-	if val>>10 > 0 {
-		return fmt.Sprintf("%vKB", val*1.0/(1<<10))
-	}
-	return fmt.Sprintf("%dB", val)
 }
 
 func listenControlPort(addr string) (err error) {
