@@ -2,9 +2,13 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io"
 	"log"
+	"strconv"
 )
+
+type flagInt32 int32
 
 var (
 	serverAddr string
@@ -14,10 +18,22 @@ var (
 	domain     string
 	rhost      string
 	isTls      bool
-	tcpPort    int
+	tcpPort    flagInt32
 
 	targets = make(map[int32]io.ReadWriteCloser)
 )
+
+func (c *flagInt32) Set(val string) (err error) {
+	v, err := strconv.ParseInt(val, 10, 32)
+	if err == nil {
+		*c = flagInt32(v)
+	}
+	return
+}
+
+func (c *flagInt32) String() string {
+	return fmt.Sprintf("%d", *c)
+}
 
 //
 func main() {
@@ -29,7 +45,7 @@ func main() {
 	flag.StringVar(&domain, "domain", "", "handle domain")
 	flag.StringVar(&rhost, "rhost", "", "rewrite domain to host")
 	flag.BoolVar(&isTls, "tls", false, "is https")
-	flag.IntVar(&tcpPort, "pport", 0, "bsc server shulde exported tcp port")
+	flag.Var(&tcpPort, "pport", "bsc server shulde exported tcp port")
 	flag.Parse()
 	if serverAddr == "" {
 		log.Println("server must not null")

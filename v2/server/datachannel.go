@@ -92,6 +92,7 @@ func (dc *DataChannel) TransferTcp(conn *net.TCPConn) {
 	log.Println("start transfer")
 	defer log.Println("transfer done")
 	defer dc.Close()
+	dc.Writer.WriteBlock(bsc.TYPE_OPEN, nil)
 	go io.CopyBuffer(dc.Writer, conn, make([]byte, 8*1024))
 	io.CopyBuffer(conn, dc.Reader, make([]byte, 8*1024))
 }

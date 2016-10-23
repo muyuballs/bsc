@@ -33,23 +33,11 @@ func WriteString(w io.Writer, str string) (err error) {
 	}
 	return
 }
-func ReadUInt(r io.Reader) (rel uint, err error) {
-	var t int32 = 0
-	err = binary.Read(r, binary.BigEndian, &t)
-	if err != nil {
-		return
-	}
-	var ui32 = 0
-	err = binary.Read(r, binary.BigEndian, &ui32)
-	if err == nil {
-		rel = uint(ui32)
-	}
+func ReadInt32(r io.Reader) (rel int32, err error) {
+	err = binary.Read(r, binary.BigEndian, &rel)
 	return
 }
-func WriteUInt(w io.Writer, val uint32) (err error) {
-	err = binary.Write(w, binary.BigEndian, 4)
-	if err == nil {
-		err = binary.Write(w, binary.BigEndian, val)
-	}
+func WriteInt32(w io.Writer, val int32) (err error) {
+	err = binary.Write(w, binary.BigEndian, val)
 	return
 }

@@ -37,7 +37,7 @@ func handTcpTun() {
 			log.Println("dial success")
 			conn.SetKeepAlive(true)
 			conn.Write([]byte{bsc.TYPE_TCP})
-			ben.WriteUInt(conn, uint32(tcpPort))
+			ben.WriteInt32(conn, int32(tcpPort))
 			handConn(TCP, conn, targetAddr)
 		} else {
 			log.Println(err)

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -11,7 +13,15 @@ import (
 	bsc "github.com/muyuballs/bsc/v2"
 )
 
+type ServerConfig struct {
+	Http      string
+	Control   string
+	TcpEnable bool
+}
+
 var (
+	Conf      = ""
+	Config    = &ServerConfig{}
 	clientMap = &ClientMap{
 		locker:  sync.Mutex{},
 		clients: make(map[string]*Client),
@@ -29,7 +39,6 @@ func bscHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleControlOrDataConnection(conn *net.TCPConn) {
-	log.Println("new client from", conn.RemoteAddr().String())
 	c_type, err := bsc.ReadByte(conn)
 	if err != nil {
 		log.Println(err)
@@ -40,7 +49,12 @@ func handleControlOrDataConnection(conn *net.TCPConn) {
 	case bsc.TYPE_HTTP:
 		handleControlConn(conn)
 	case bsc.TYPE_TCP:
-		handleTcpTunConn(conn)
+		if Config.TcpEnable {
+			handleTcpTunConn(conn)
+		} else {
+			log.Println("tcp tun is not enabled")
+			conn.Close()
+		}
 	default:
 		log.Println("not support c_type:", c_type)
 		conn.Close()
@@ -61,7 +75,7 @@ func pingTask() {
 	}
 }
 
-func listenControlAndDataPort(addr string) (err error) {
+func listenControlPort(addr string) (err error) {
 	laddr, err := net.ResolveTCPAddr("tcp", addr)
 	if err != nil {
 		return
@@ -85,23 +99,39 @@ func listenControlAndDataPort(addr string) (err error) {
 
 func main() {
 	log.Println("hello bsc-server")
-	httpAddr := flag.String("http", "", "http listen address")
-	tcp := flag.String("tcp", "", "data & control listen address")
+	flag.StringVar(&Config.Http, "http", "", "http listen address")
+	flag.StringVar(&Config.Control, "ctrl", "", "controller listen address")
+	flag.BoolVar(&Config.TcpEnable, "tcp", false, "tcp tun enable ,default is false")
+	flag.StringVar(&Conf, "conf", "", "conf file path")
 	flag.Parse()
-	if *httpAddr == "" {
+	if Conf != "" {
+		data, err := ioutil.ReadFile(Conf)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		err = json.Unmarshal(data, Config)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+	}
+	if Config.Http == "" {
+		log.Println("http must not null")
 		flag.PrintDefaults()
 		return
 	}
-	if *tcp == "" {
+	if Config.Control == "" {
+		log.Println("ctrl must not null")
 		flag.PrintDefaults()
 		return
 	}
-	err := listenControlAndDataPort(*tcp)
+	err := listenControlPort(Config.Control)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 	go pingTask()
 	http.HandleFunc("/", bscHandler)
-	log.Println(http.ListenAndServe(*httpAddr, nil))
+	log.Println(http.ListenAndServe(Config.Http, nil))
 }

@@ -26,14 +26,14 @@ func handleControlConn(conn *net.TCPConn) {
 		conn.Close()
 		return
 	}
-	log.Println("new client", domain, rewrite)
+	log.Println("new client [http]", domain, rewrite)
 	client := NewClient(domain, rewrite, conn)
 	clientMap.Append(client)
 	client.StartSerivce()
 }
 
 func handleTcpTunConn(conn *net.TCPConn) {
-	exportPort, err := ben.ReadUInt(conn)
+	exportPort, err := ben.ReadInt32(conn)
 	if err != nil {
 		log.Println(err)
 		conn.Close()
@@ -44,7 +44,7 @@ func handleTcpTunConn(conn *net.TCPConn) {
 		conn.Close()
 		return
 	}
-	log.Println("new client", exportPort)
+	log.Println("new client[tcp]", exportPort)
 	laddr, err := net.ResolveTCPAddr("tcp", fmt.Sprintf("0.0.0.0:%d", exportPort))
 	if err != nil {
 		log.Println(err)
