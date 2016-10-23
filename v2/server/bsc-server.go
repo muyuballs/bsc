@@ -26,10 +26,11 @@ var (
 		locker:  sync.Mutex{},
 		clients: make(map[string]*Client),
 	}
-	CH_C_OUT        = make(chan (int), 100)
-	CH_C_IN         = make(chan (int), 100)
-	clientIn  int64 = 0
-	clientOut int64 = 0
+
+//	CH_C_OUT        = make(chan (int), 100)
+//	CH_C_IN         = make(chan (int), 100)
+//	clientIn  int64 = 0
+//	clientOut int64 = 0
 )
 
 func bscHandler(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +67,7 @@ func handleControlOrDataConnection(conn *net.TCPConn) {
 }
 
 func pingTask() {
-	for _ = range time.Tick(10 * time.Second) {
+	for _ = range time.Tick(30 * time.Second) {
 		errClients := make([]string, 0)
 		for domain, client := range clientMap.clients {
 			if err := client.SendPingMessage(); err != nil {
@@ -79,30 +80,30 @@ func pingTask() {
 	}
 }
 
-func trafficTask() {
-	for {
-		select {
-		case v := <-CH_C_IN:
-			clientIn += int64(v)
-		case v := <-CH_C_OUT:
-			clientOut += int64(v)
-		case _ = <-time.Tick(time.Second):
-			continue
-		}
-	}
-}
+//func trafficTask() {
+//	for {
+//		select {
+//		case v := <-CH_C_IN:
+//			clientIn += int64(v)
+//		case v := <-CH_C_OUT:
+//			clientOut += int64(v)
+//		case _ = <-time.Tick(time.Second):
+//			continue
+//		}
+//	}
+//}
 
-func infoTask() {
-	var _ci int64 = 0
-	var _co int64 = 0
-	for _ = range time.Tick(time.Second) {
-		cis := clientIn - _ci
-		cos := clientOut - _co
-		_ci = clientIn
-		_co = clientOut
-		log.Printf("Client >> In:%s Out:%s \n", bsc.FormatSize(cis), bsc.FormatSize(cos))
-	}
-}
+//func infoTask() {
+//	var _ci int64 = 0
+//	var _co int64 = 0
+//	for _ = range time.Tick(time.Second) {
+//		cis := clientIn - _ci
+//		cos := clientOut - _co
+//		_ci = clientIn
+//		_co = clientOut
+//		log.Printf("Client >> In:%s Out:%s \n", bsc.FormatSize(cis), bsc.FormatSize(cos))
+//	}
+//}
 
 func listenControlPort(addr string) (err error) {
 	laddr, err := net.ResolveTCPAddr("tcp", addr)
@@ -161,8 +162,8 @@ func main() {
 		return
 	}
 	go pingTask()
-	go trafficTask()
-	go infoTask()
+	//	go trafficTask()
+	//	go infoTask()
 	http.HandleFunc("/", bscHandler)
 	log.Println(http.ListenAndServe(Config.Http, nil))
 }

@@ -45,8 +45,8 @@ func NewTcpClient(port int, svr *net.TCPConn) *Client {
 }
 
 func (c *Client) CloseDataChannel(channel *DataChannel) {
-	defer c.locker.Unlock()
-	c.locker.Lock()
+	//	defer c.locker.Unlock()
+	//	c.locker.Lock()
 	if w, ok := c.pipMap[channel.SID]; ok {
 		delete(c.pipMap, channel.SID)
 		w.Close()
@@ -84,7 +84,8 @@ func (c Client) StartSerivce() {
 				log.Println("read domain channel ", err)
 				break
 			}
-			if block.Type == bsc.TYPE_DATA {
+			switch block.Type {
+			case bsc.TYPE_DATA:
 				if writer, ok := c.pipMap[block.Tag]; ok {
 					n, err := writer.Write(block.Data)
 					if err != nil || n < len(block.Data) {
@@ -97,39 +98,35 @@ func (c Client) StartSerivce() {
 						delete(c.pipMap, block.Tag)
 					}
 				}
-				continue
-			}
-			if block.Type == bsc.TYPE_CLOSE {
+			case bsc.TYPE_CLOSE:
 				if writer, ok := c.pipMap[block.Tag]; ok {
 					writer.Close()
 					delete(c.pipMap, block.Tag)
 				}
-				continue
-			}
-			if block.Type == bsc.TYPE_PANG {
-				continue
-			}
-			if block.Type == bsc.TYPE_PING {
+			case bsc.TYPE_PANG:
+			case bsc.TYPE_PING:
 				pingBlock := bsc.Block{Type: bsc.TYPE_PANG}
 				pingBlock.WriteTo(c.Service)
-				continue
+			default:
+				log.Println("not support block type", block.Type)
 			}
-			log.Println("not support block type", block.Type)
 		}
 	}()
 }
 
 func (c *Client) CreateDataChannel() *DataChannel {
-	defer c.locker.Unlock()
-	c.locker.Lock()
+	//	defer c.locker.Unlock()
+	//	c.locker.Lock()
 	sid := c.r.Int31()
 	r, w := io.Pipe()
 	c.pipMap[sid] = w
 	return &DataChannel{
-		SID:    sid,
-		Rhost:  c.Rewrite,
-		Writer: bsc.NewBlockWriter(bsc.NewTrackWriter(CH_C_OUT, c.Service), sid),
-		Reader: bsc.NewTrackReader(CH_C_IN, r),
+		SID:   sid,
+		Rhost: c.Rewrite,
+		//Writer: bsc.NewBlockWriter(bsc.NewTrackWriter(CH_C_OUT, c.Service), sid),
+		Writer: bsc.NewBlockWriter(c.Service, sid),
+		//Reader: bsc.NewTrackReader(CH_C_IN, r),
+		Reader: r,
 		Mgr:    c,
 	}
 }

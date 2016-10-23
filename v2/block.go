@@ -16,6 +16,7 @@ const (
 	TYPE_PING  = 5
 	TYPE_PANG  = 6
 	TYPE_TCP   = 7
+	DEF_BUF    = 64 * 1024
 )
 
 type Block struct {

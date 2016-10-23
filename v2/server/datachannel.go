@@ -78,7 +78,7 @@ func (dc *DataChannel) Transfer(w http.ResponseWriter, r *http.Request, handReqT
 	w.Header().Add("X-Bsc-ReadResp", getRespHeaderDone.String())
 	w.WriteHeader(resp.StatusCode)
 	if resp.Body != nil {
-		io.CopyBuffer(w, resp.Body, make([]byte, 8*1024))
+		io.CopyBuffer(w, resp.Body, make([]byte, bsc.DEF_BUF))
 	}
 }
 
@@ -87,6 +87,6 @@ func (dc *DataChannel) TransferTcp(conn *net.TCPConn) {
 	//	defer log.Println("transfer done")
 	defer dc.Close()
 	dc.Writer.WriteBlock(bsc.TYPE_OPEN, nil)
-	go io.CopyBuffer(dc.Writer, conn, make([]byte, 8*1024))
-	io.CopyBuffer(conn, dc.Reader, make([]byte, 8*1024))
+	go io.CopyBuffer(dc.Writer, conn, make([]byte, bsc.DEF_BUF))
+	io.CopyBuffer(conn, dc.Reader, make([]byte, bsc.DEF_BUF))
 }

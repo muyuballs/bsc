@@ -95,7 +95,7 @@ func openHttpChannel(bscConn *net.TCPConn, tag int32, targetAddr *net.TCPAddr) {
 		w.Write(l)
 		w.Write([]byte{'\r', '\n'})
 		fmt.Fprintf(w, "X-BSC-DIAL:%s\r\n", dialCost.String())
-		_, err = io.Copy(w, r)
+		_, err = io.CopyBuffer(w, r, make([]byte, bsc.DEF_BUF))
 		if err != nil {
 			log.Println("copy", tag, err)
 			return
