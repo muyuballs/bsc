@@ -19,7 +19,7 @@ type Client struct {
 	Rewrite string
 	Service *net.TCPConn
 	pipMap  map[int32]*io.PipeWriter
-	locker  sync.Mutex
+	lk      sync.Mutex
 	r       *rand.Rand
 }
 
@@ -29,7 +29,7 @@ func NewClient(domain, rewrite string, svr *net.TCPConn) *Client {
 		Domain:  domain,
 		Rewrite: rewrite,
 		Service: svr,
-		locker:  sync.Mutex{},
+		lk:      sync.Mutex{},
 		pipMap:  make(map[int32]*io.PipeWriter),
 		r:       rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
@@ -39,14 +39,14 @@ func NewTcpClient(port int, svr *net.TCPConn) *Client {
 	return &Client{
 		Type:    bsc.TYPE_TCP,
 		Service: svr,
-		locker:  sync.Mutex{},
+		lk:      sync.Mutex{},
 		pipMap:  make(map[int32]*io.PipeWriter),
 	}
 }
 
 func (c *Client) CloseDataChannel(channel *DataChannel) {
-	//	defer c.locker.Unlock()
-	//	c.locker.Lock()
+	defer c.lk.Unlock()
+	c.lk.Lock()
 	if w, ok := c.pipMap[channel.SID]; ok {
 		delete(c.pipMap, channel.SID)
 		w.Close()
@@ -115,8 +115,8 @@ func (c Client) StartSerivce() {
 }
 
 func (c *Client) CreateDataChannel() *DataChannel {
-	//	defer c.locker.Unlock()
-	//	c.locker.Lock()
+	defer c.lk.Unlock()
+	c.lk.Lock()
 	sid := c.r.Int31()
 	r, w := io.Pipe()
 	c.pipMap[sid] = w
