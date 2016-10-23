@@ -35,6 +35,15 @@ func handTcpTun() {
 		conn, err := net.DialTCP("tcp", nil, bscAddr)
 		if err == nil {
 			log.Println("dial success")
+			go func(conn *net.TCPConn) {
+				b := bsc.Block{Type: bsc.TYPE_PING}
+				for _ = range time.Tick(10 * time.Second) {
+					_, err := b.WriteTo(conn)
+					if err != nil {
+						return
+					}
+				}
+			}(conn)
 			conn.SetKeepAlive(true)
 			conn.Write([]byte{bsc.TYPE_TCP})
 			ben.WriteInt32(conn, int32(tcpPort))

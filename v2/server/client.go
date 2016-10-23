@@ -106,7 +106,11 @@ func (c Client) StartSerivce() {
 				continue
 			}
 			if block.Type == bsc.TYPE_PANG {
-				log.Println("Pong from", c.Service.RemoteAddr().String())
+				continue
+			}
+			if block.Type == bsc.TYPE_PING {
+				pingBlock := bsc.Block{Type: bsc.TYPE_PANG}
+				pingBlock.WriteTo(c.Service)
 				continue
 			}
 			log.Println("not support block type", block.Type)
@@ -123,8 +127,8 @@ func (c *Client) CreateDataChannel() *DataChannel {
 	return &DataChannel{
 		SID:    c.ref,
 		Rhost:  c.Rewrite,
-		Writer: bsc.NewBlockWriter(c.Service, c.ref),
-		Reader: r,
+		Writer: bsc.NewBlockWriter(bsc.NewTrackWriter(CH_C_OUT, c.Service), c.ref),
+		Reader: bsc.NewTrackReader(CH_C_IN, r),
 		Mgr:    c,
 	}
 }

@@ -78,6 +78,10 @@ func handConn(tType int, bscConn *net.TCPConn, targetAddr *net.TCPAddr) {
 			pang(bscConn)
 			continue
 		}
+		if block.Type == bsc.TYPE_PANG {
+			log.Println("Pang from ", bscConn.LocalAddr().String())
+			continue
+		}
 		log.Println("not support block type", block.Type)
 	}
 }

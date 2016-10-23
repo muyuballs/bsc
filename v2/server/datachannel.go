@@ -36,15 +36,15 @@ func (dc *DataChannel) Write(dat []byte) {
 }
 
 func (dc *DataChannel) Transfer(w http.ResponseWriter, r *http.Request, handReqTime time.Time) {
-	log.Println("start transfer")
-	defer log.Println("transfer done")
+	//	log.Println("start transfer")
+	//	defer log.Println("transfer done")
 	defer dc.Close()
 	inServerCost := time.Since(handReqTime)
 	startTime := time.Now()
 	dc.Writer.WriteBlock(bsc.TYPE_OPEN, nil)
 	fmt.Fprintf(dc.Writer, "%s %s %s\r\n", r.Method, r.RequestURI, r.Proto)
 	if dc.Rhost != "" {
-		log.Println("rewrite host", r.Host, "-->", dc.Rhost)
+		//		log.Println("rewrite host", r.Host, "-->", dc.Rhost)
 		fmt.Fprintf(dc.Writer, "Host: %s\r\n", dc.Rhost)
 	} else {
 		fmt.Fprintf(dc.Writer, "Host: %s\r\n", r.Host)
@@ -54,23 +54,24 @@ func (dc *DataChannel) Transfer(w http.ResponseWriter, r *http.Request, handReqT
 	if r.Body != nil {
 		_, err := io.Copy(dc.Writer, r.Body)
 		if err != nil {
-			log.Println("copy request body", err)
+			//			log.Println("copy request body", err)
 			return
 		}
 		dc.Write([]byte("\r\n"))
 	}
 	copyReqDone := time.Since(startTime)
-	log.Println("request body copy done")
-	log.Println("start copy response")
+	//	log.Println("request body copy done")
+	//	log.Println("start copy response")
 	startReadTime := time.Now()
 	reader := bufio.NewReader(dc.Reader)
 	resp, err := http.ReadResponse(reader, r)
 	getRespHeaderDone := time.Since(startReadTime)
 	if err != nil {
 		log.Println("read response", err)
+		bsc.ServerError(w, r, err)
 		return
 	}
-	log.Println("read response done")
+	//	log.Println("read response done")
 	defer func() {
 		if resp.Body != nil {
 			resp.Body.Close()
@@ -89,8 +90,8 @@ func (dc *DataChannel) Transfer(w http.ResponseWriter, r *http.Request, handReqT
 }
 
 func (dc *DataChannel) TransferTcp(conn *net.TCPConn) {
-	log.Println("start transfer")
-	defer log.Println("transfer done")
+	//	log.Println("start transfer")
+	//	defer log.Println("transfer done")
 	defer dc.Close()
 	dc.Writer.WriteBlock(bsc.TYPE_OPEN, nil)
 	go io.CopyBuffer(dc.Writer, conn, make([]byte, 8*1024))

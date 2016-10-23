@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"net"
 	"time"
 )
 
@@ -25,7 +24,7 @@ type Block struct {
 	Data []byte
 }
 
-func (block Block) WriteTo(w *net.TCPConn) (rs int, err error) {
+func (block Block) WriteTo(w io.Writer) (rs int, err error) {
 	bw := bufio.NewWriter(w)
 	dataLen := 4 + 1 + 4
 	if block.Data != nil {
@@ -63,7 +62,7 @@ type BlockWriter struct {
 	closed     bool
 	Tag        int32
 	LastAccess time.Time
-	Writer     *net.TCPConn
+	Writer     io.WriteCloser
 }
 
 func (blockWriter BlockWriter) WriteBlock(tp int8, dat []byte) (n int, err error) {
@@ -83,7 +82,7 @@ func (blockWriter BlockWriter) Close() error {
 	return nil
 }
 
-func NewBlockWriter(w *net.TCPConn, tag int32) BlockWriter {
+func NewBlockWriter(w io.WriteCloser, tag int32) BlockWriter {
 	return BlockWriter{Writer: w, closed: false, Tag: tag}
 }
 

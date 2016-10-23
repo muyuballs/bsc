@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -26,6 +27,10 @@ var (
 		locker:  sync.Mutex{},
 		clients: make(map[string]*Client),
 	}
+	CH_C_OUT        = make(chan (int), 100)
+	CH_C_IN         = make(chan (int), 100)
+	clientIn  int64 = 0
+	clientOut int64 = 0
 )
 
 func bscHandler(w http.ResponseWriter, r *http.Request) {
@@ -73,6 +78,44 @@ func pingTask() {
 		}
 		clientMap.RemoveAll(errClients)
 	}
+}
+
+func trafficTask() {
+	for {
+		select {
+		case v := <-CH_C_IN:
+			clientIn += int64(v)
+		case v := <-CH_C_OUT:
+			clientOut += int64(v)
+		case _ = <-time.Tick(time.Second):
+			continue
+		}
+	}
+}
+
+func infoTask() {
+	var _ci int64 = 0
+	var _co int64 = 0
+	for _ = range time.Tick(time.Second) {
+		cis := clientIn - _ci
+		cos := clientOut - _co
+		_ci = clientIn
+		_co = clientOut
+		log.Printf("Client >> In:%s Out:%s \n", formatSpeed(cis), formatSpeed(cos))
+	}
+}
+
+func formatSpeed(val int64) string {
+	if val>>30 > 0 {
+		return fmt.Sprintf("%vGB", val*1.0/(1<<30))
+	}
+	if val>>20 > 0 {
+		return fmt.Sprintf("%vMB", val*1.0/(1<<20))
+	}
+	if val>>10 > 0 {
+		return fmt.Sprintf("%vKB", val*1.0/(1<<10))
+	}
+	return fmt.Sprintf("%dB", val)
 }
 
 func listenControlPort(addr string) (err error) {
@@ -132,6 +175,8 @@ func main() {
 		return
 	}
 	go pingTask()
+	go trafficTask()
+	go infoTask()
 	http.HandleFunc("/", bscHandler)
 	log.Println(http.ListenAndServe(Config.Http, nil))
 }
