@@ -119,7 +119,6 @@ func listenControlPort(addr string) (err error) {
 			conn, err := listener.AcceptTCP()
 			if err != nil {
 				panic(err)
-				return
 			}
 			go handleControlOrDataConnection(conn)
 		}

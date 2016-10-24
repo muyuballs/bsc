@@ -74,7 +74,7 @@ func (c *Client) SendPingMessage() (err error) {
 	return
 }
 
-func (c Client) StartSerivce() {
+func (c *Client) StartSerivce() {
 	go func() {
 		defer c.Remove()
 		reader := bsc.BlockReader{Reader: bufio.NewReader(c.Service)}

@@ -8,17 +8,6 @@ import (
 	"time"
 )
 
-const (
-	TYPE_HTTP  = 0
-	TYPE_DATA  = 1
-	TYPE_OPEN  = 2
-	TYPE_CLOSE = 3
-	TYPE_PING  = 5
-	TYPE_PANG  = 6
-	TYPE_TCP   = 7
-	DEF_BUF    = 64 * 1024
-)
-
 type Block struct {
 	Type int8
 	Tag  int32
