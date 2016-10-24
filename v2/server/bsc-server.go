@@ -13,15 +13,15 @@ import (
 	bsc "github.com/muyuballs/bsc/v2"
 )
 
-type ServerConfig struct {
-	Http      string
+type serverConfig struct {
+	HTTP      string
 	Control   string
-	TcpEnable bool
+	TCPEnable bool
 }
 
 var (
-	Conf      = ""
-	Config    = &ServerConfig{}
+	conf      = ""
+	config    = &serverConfig{}
 	clientMap = &ClientMap{
 		locker:  sync.Mutex{},
 		clients: make(map[string]*Client),
@@ -44,24 +44,24 @@ func bscHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleControlOrDataConnection(conn *net.TCPConn) {
-	c_type, err := bsc.ReadByte(conn)
+	cType, err := bsc.ReadByte(conn)
 	if err != nil {
 		log.Println(err)
 		conn.Close()
 		return
 	}
-	switch c_type {
+	switch cType {
 	case bsc.TYPE_HTTP:
-		handleControlConn(conn)
+		handleHTTPControlConn(conn)
 	case bsc.TYPE_TCP:
-		if Config.TcpEnable {
-			handleTcpTunConn(conn)
+		if config.TCPEnable {
+			handleTCPTunConn(conn)
 		} else {
 			log.Println("tcp tun is not enabled")
 			conn.Close()
 		}
 	default:
-		log.Println("not support c_type:", c_type)
+		log.Println("not support type:", cType)
 		conn.Close()
 	}
 }
@@ -128,34 +128,34 @@ func listenControlPort(addr string) (err error) {
 
 func main() {
 	log.Println("hello bsc-server")
-	flag.StringVar(&Config.Http, "http", "", "http listen address")
-	flag.StringVar(&Config.Control, "ctrl", "", "controller listen address")
-	flag.BoolVar(&Config.TcpEnable, "tcp", false, "tcp tun enable ,default is false")
-	flag.StringVar(&Conf, "conf", "", "conf file path")
+	flag.StringVar(&config.HTTP, "http", "", "http listen address")
+	flag.StringVar(&config.Control, "ctrl", "", "controller listen address")
+	flag.BoolVar(&config.TCPEnable, "tcp", false, "tcp tun enable ,default is false")
+	flag.StringVar(&conf, "conf", "", "conf file path")
 	flag.Parse()
-	if Conf != "" {
-		data, err := ioutil.ReadFile(Conf)
+	if conf != "" {
+		data, err := ioutil.ReadFile(conf)
 		if err != nil {
 			log.Println(err)
 			return
 		}
-		err = json.Unmarshal(data, Config)
+		err = json.Unmarshal(data, config)
 		if err != nil {
 			log.Println(err)
 			return
 		}
 	}
-	if Config.Http == "" {
+	if config.HTTP == "" {
 		log.Println("http must not null")
 		flag.PrintDefaults()
 		return
 	}
-	if Config.Control == "" {
+	if config.Control == "" {
 		log.Println("ctrl must not null")
 		flag.PrintDefaults()
 		return
 	}
-	err := listenControlPort(Config.Control)
+	err := listenControlPort(config.Control)
 	if err != nil {
 		log.Println(err)
 		return
@@ -164,5 +164,5 @@ func main() {
 	//	go trafficTask()
 	//	go infoTask()
 	http.HandleFunc("/", bscHandler)
-	log.Println(http.ListenAndServe(Config.Http, nil))
+	log.Println(http.ListenAndServe(config.HTTP, nil))
 }

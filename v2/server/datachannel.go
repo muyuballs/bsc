@@ -82,7 +82,7 @@ func (dc *DataChannel) Transfer(w http.ResponseWriter, r *http.Request, handReqT
 	}
 }
 
-func (dc *DataChannel) TransferTcp(conn *net.TCPConn) {
+func (dc *DataChannel) TransferTCP(conn *net.TCPConn) {
 	//	log.Println("start transfer")
 	//	defer log.Println("transfer done")
 	defer dc.Close()

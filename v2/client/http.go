@@ -15,7 +15,7 @@ import (
 	"github.com/muyuballs/bsc/v2/ben"
 )
 
-func handHttpTun() {
+func handHTTPProxy() {
 	if domain == "" {
 		log.Println("domain must not null")
 		flag.PrintDefaults()
@@ -52,9 +52,9 @@ func handHttpTun() {
 	}
 }
 
-func dialHttpTarget(taddr *net.TCPAddr) (conn io.ReadWriteCloser, err error) {
+func dialHTTPTarget(taddr *net.TCPAddr) (conn io.ReadWriteCloser, err error) {
 	log.Println("dial taddr", taddr)
-	if taddr.Port == 443 || isTls {
+	if taddr.Port == 443 || isTLS {
 		dConn, err := tls.Dial("tcp", taddr.String(), &tls.Config{InsecureSkipVerify: true})
 		if err != nil {
 			log.Println("dial taddr:", err)
@@ -72,9 +72,9 @@ func dialHttpTarget(taddr *net.TCPAddr) (conn io.ReadWriteCloser, err error) {
 	return dConn, nil
 }
 
-func openHttpChannel(bscConn *net.TCPConn, tag int32, targetAddr *net.TCPAddr) {
+func openHTTPChannel(bscConn *net.TCPConn, tag int32, targetAddr *net.TCPAddr) {
 	startTime := time.Now()
-	targetConn, err := dialHttpTarget(targetAddr)
+	targetConn, err := dialHTTPTarget(targetAddr)
 	if err != nil {
 		closeTag(bscConn, tag, err)
 		return
@@ -88,7 +88,7 @@ func openHttpChannel(bscConn *net.TCPConn, tag int32, targetAddr *net.TCPAddr) {
 			return
 		}
 		if m {
-			closeTag(bscConn, tag, errors.New("tooo lang status line."))
+			closeTag(bscConn, tag, errors.New("tooo lang status line"))
 			return
 		}
 		w := bsc.NewBlockWriter(bscConn, tag)
@@ -100,6 +100,6 @@ func openHttpChannel(bscConn *net.TCPConn, tag int32, targetAddr *net.TCPAddr) {
 			log.Println("copy", tag, err)
 			return
 		}
-		closeTag(bscConn, tag, errors.New("copy done."))
+		closeTag(bscConn, tag, errors.New("copy done"))
 	}(tag, time.Since(startTime))
 }

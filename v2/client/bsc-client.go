@@ -17,7 +17,7 @@ var (
 	tunType    string
 	domain     string
 	rhost      string
-	isTls      bool
+	isTLS      bool
 	tcpPort    flagInt32
 
 	targets = make(map[int32]io.ReadWriteCloser)
@@ -44,7 +44,7 @@ func main() {
 	flag.IntVar(&retry, "retry count", -1, "retry count default -1 for ever")
 	flag.StringVar(&domain, "domain", "", "handle domain")
 	flag.StringVar(&rhost, "rhost", "", "rewrite domain to host")
-	flag.BoolVar(&isTls, "tls", false, "is https")
+	flag.BoolVar(&isTLS, "tls", false, "is https")
 	flag.Var(&tcpPort, "pport", "bsc server shulde exported tcp port")
 	flag.Parse()
 	if serverAddr == "" {
@@ -59,9 +59,9 @@ func main() {
 	}
 
 	if tunType == "http" {
-		handHttpTun()
+		handHTTPProxy()
 	} else if tunType == "tcp" {
-		handTcpTun()
+		handTCPTun()
 	} else {
 		log.Println("not supported tun type")
 		flag.PrintDefaults()

@@ -13,7 +13,7 @@ import (
 	"github.com/muyuballs/bsc/v2/ben"
 )
 
-func handTcpTun() {
+func handTCPTun() {
 	if tcpPort == 0 {
 		log.Println("pport must > 0")
 		flag.PrintDefaults()
@@ -58,7 +58,7 @@ func handTcpTun() {
 	}
 }
 
-func openTcpChannel(bscConn *net.TCPConn, tag int32, targetAddr *net.TCPAddr) {
+func openTCPChannel(bscConn *net.TCPConn, tag int32, targetAddr *net.TCPAddr) {
 	targetConn, err := net.DialTCP("tcp", nil, targetAddr)
 	if err != nil {
 		closeTag(bscConn, tag, err)
@@ -71,6 +71,6 @@ func openTcpChannel(bscConn *net.TCPConn, tag int32, targetAddr *net.TCPAddr) {
 			log.Println("copy", err)
 			return
 		}
-		closeTag(bscConn, tag, errors.New("copy done."))
+		closeTag(bscConn, tag, errors.New("copy done"))
 	}(tag)
 }

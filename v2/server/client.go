@@ -35,7 +35,7 @@ func NewClient(domain, rewrite string, svr *net.TCPConn) *Client {
 	}
 }
 
-func NewTcpClient(port int, svr *net.TCPConn) *Client {
+func NewTCPClient(port int, svr *net.TCPConn) *Client {
 	return &Client{
 		Type:    bsc.TYPE_TCP,
 		Service: svr,
@@ -140,12 +140,12 @@ func (c *Client) Transfer(w http.ResponseWriter, r *http.Request, st time.Time) 
 	channel.Transfer(w, r, st)
 }
 
-func (c *Client) TransferTcp(conn *net.TCPConn) {
+func (c *Client) TransferTCP(conn *net.TCPConn) {
 	channel := c.CreateDataChannel()
 	if channel == nil {
 		conn.Close()
 		c.Close()
 		return
 	}
-	channel.TransferTcp(conn)
+	channel.TransferTCP(conn)
 }

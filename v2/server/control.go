@@ -8,7 +8,7 @@ import (
 	"github.com/muyuballs/bsc/v2/ben"
 )
 
-func handleControlConn(conn *net.TCPConn) {
+func handleHTTPControlConn(conn *net.TCPConn) {
 	domain, err := ben.ReadString(conn)
 	if err != nil {
 		log.Println(err)
@@ -32,7 +32,7 @@ func handleControlConn(conn *net.TCPConn) {
 	client.StartSerivce()
 }
 
-func handleTcpTunConn(conn *net.TCPConn) {
+func handleTCPTunConn(conn *net.TCPConn) {
 	exportPort, err := ben.ReadInt32(conn)
 	if err != nil {
 		log.Println(err)
@@ -58,7 +58,7 @@ func handleTcpTunConn(conn *net.TCPConn) {
 		conn.Close()
 		return
 	}
-	client := NewTcpClient(int(exportPort), conn)
+	client := NewTCPClient(int(exportPort), conn)
 	client.StartSerivce()
 	go func(listener *net.TCPListener, c *Client) {
 		defer conn.Close()
@@ -68,7 +68,7 @@ func handleTcpTunConn(conn *net.TCPConn) {
 				log.Println(err)
 				return
 			}
-			c.TransferTcp(conn)
+			c.TransferTCP(conn)
 		}
 	}(listener, client)
 }

@@ -59,9 +59,9 @@ func handConn(tType int, bscConn *net.TCPConn, targetAddr *net.TCPAddr) {
 				closeTag(bscConn, block.Tag, errors.New("close finished channel"))
 			}
 			if tType == HTTP {
-				openHttpChannel(bscConn, block.Tag, targetAddr)
+				openHTTPChannel(bscConn, block.Tag, targetAddr)
 			} else if tType == TCP {
-				openTcpChannel(bscConn, block.Tag, targetAddr)
+				openTCPChannel(bscConn, block.Tag, targetAddr)
 			}
 			continue
 		}
